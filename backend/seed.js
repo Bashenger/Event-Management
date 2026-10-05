@@ -1,0 +1,274 @@
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
+import User from './models/User.js';
+import Event from './models/Event.js';
+import Registration from './models/Registration.js';
+
+dotenv.config();
+
+const seedData = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/campus_events_db');
+    console.log('[Seed] Connected to MongoDB...');
+
+    // Clear existing data
+    await User.deleteMany();
+    await Event.deleteMany();
+    await Registration.deleteMany();
+    console.log('[Seed] Existing collections cleared...');
+
+    // Hash default password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash('password123', salt);
+
+    // Create Demo Users
+    const users = await User.insertMany([
+      {
+        name: 'Alex Johnson',
+        email: 'student@campus.edu',
+        password: hashedPassword,
+        role: 'student',
+        department: 'Computer Science & Engineering',
+        studentId: 'CS2026-8912',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Prof. Sarah Jenkins',
+        email: 'organizer@campus.edu',
+        password: hashedPassword,
+        role: 'organizer',
+        department: 'Information Technology',
+        studentId: 'FAC-IT-104',
+        avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Dr. Marcus Vance',
+        email: 'admin@campus.edu',
+        password: hashedPassword,
+        role: 'admin',
+        department: 'Dean of Student Affairs',
+        studentId: 'ADM-EXEC-001',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+      },
+    ]);
+
+    const organizerId = users[1]._id;
+    const studentId = users[0]._id;
+
+    // Helper for date creation
+    const getFutureDate = (daysAhead, hours = 10, minutes = 0) => {
+      const d = new Date();
+      d.setDate(d.getDate() + daysAhead);
+      d.setHours(hours, minutes, 0, 0);
+      return d;
+    };
+
+    const getPastDate = (daysAgo, hours = 14, minutes = 0) => {
+      const d = new Date();
+      d.setDate(d.getDate() - daysAgo);
+      d.setHours(hours, minutes, 0, 0);
+      return d;
+    };
+
+    // Seed Events
+    const eventsData = [
+      {
+        eventName: 'Next-Gen Generative AI & LLM Systems Workshop',
+        eventType: 'Workshop',
+        resourcePerson: 'Dr. Elena Rostova (Senior AI Research Scientist at DeepScale)',
+        speakerBio: 'Specializes in Foundation Models, Transformer architectures, and efficient fine-tuning techniques (LoRA/QLoRA).',
+        eventDate: getFutureDate(3, 10, 0),
+        endDate: getFutureDate(3, 16, 0),
+        venue: 'Turing Computer Lab & Virtual Stream (Hall A-102)',
+        maxParticipants: 45,
+        availableSeats: 8,
+        eventDescription: 'An intensive, hands-on workshop taking students from foundational attention mechanisms to deploying customized multimodal agents. Participants will build and evaluate local RAG pipelines and learn quantization methodologies for constrained edge hardware.',
+        status: 'Registration Open',
+        createdBy: organizerId,
+        tags: ['Artificial Intelligence', 'LLMs', 'Python', 'Machine Learning'],
+        bannerImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
+        agenda: [
+          { time: '10:00 AM - 11:30 AM', topic: 'Architecture of Transformer Models & Self-Attention', speaker: 'Dr. Elena Rostova' },
+          { time: '11:45 AM - 01:15 PM', topic: 'Hands-on: Building Vector Retrieval & RAG Chains', speaker: 'Dr. Elena Rostova' },
+          { time: '02:00 PM - 03:45 PM', topic: 'Fine-tuning with LoRA & Local Deployment', speaker: 'Dr. Elena Rostova' },
+          { time: '03:45 PM - 04:00 PM', topic: 'Q&A and Project Showcase', speaker: 'All Attendees' },
+        ],
+      },
+      {
+        eventName: 'Campus 24-Hour Cybersecurity & Ethical Hacking Hackathon',
+        eventType: 'Hackathon',
+        resourcePerson: 'Marcus Thorne (Chief Information Security Officer, SentinelGrid)',
+        speakerBio: 'Red team specialist, DEFCON speaker, and former vulnerability researcher with 12+ years in zero-trust architecture.',
+        eventDate: getFutureDate(7, 9, 0),
+        endDate: getFutureDate(8, 9, 0),
+        venue: 'Campus Innovation Hub - Arena Alpha',
+        maxParticipants: 100,
+        availableSeats: 2,
+        eventDescription: 'Gear up for the most thrilling 24-hour Capture The Flag (CTF) and defensive cyber-resilience challenge! Teams will tackle live simulated enterprise network breaches, reverse engineering binaries, cryptography riddles, and web exploit mitigation. Cash prizes and internship fast-tracks for top 3 teams.',
+        status: 'Registration Open',
+        createdBy: organizerId,
+        tags: ['Cybersecurity', 'CTF', 'Ethical Hacking', 'Networking', 'Prizes'],
+        bannerImage: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80',
+        agenda: [
+          { time: '09:00 AM - 10:00 AM', topic: 'Opening Keynote & CTF Platform Briefing', speaker: 'Marcus Thorne' },
+          { time: '10:00 AM', topic: 'Hackathon Begins (24-Hour Timer Starts)', speaker: 'Organizing Team' },
+          { time: '08:00 PM', topic: 'Midnight Lightning Vulnerability Sprint', speaker: 'Mentors' },
+          { time: '09:00 AM (Next Day)', topic: 'Code Freeze, Scoring & Award Ceremony', speaker: 'Evaluation Jury' },
+        ],
+      },
+      {
+        eventName: 'Quantum Computing: From Theory to Practical Qubits',
+        eventType: 'Seminar',
+        resourcePerson: 'Prof. David K. Miller (Center for Theoretical Physics)',
+        speakerBio: 'Author of 30+ peer-reviewed papers on Quantum Superposition, Entanglement, and Quantum Error Correction.',
+        eventDate: getFutureDate(12, 14, 0),
+        endDate: getFutureDate(12, 16, 30),
+        venue: 'Main Auditorium (Room 301)',
+        maxParticipants: 120,
+        availableSeats: 65,
+        eventDescription: 'Explore the revolutionary frontier of quantum mechanics applied to computing. This seminar deciphers how qubits break classical complexity ceilings, dives into Shor and Grover algorithms, and demonstrates IBM Qiskit running real quantum circuits on cloud simulators.',
+        status: 'Registration Open',
+        createdBy: organizerId,
+        tags: ['Quantum', 'Physics', 'Qiskit', 'Algorithms'],
+        bannerImage: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&auto=format&fit=crop&q=80',
+        agenda: [
+          { time: '02:00 PM - 03:00 PM', topic: 'Mathematical Foundations of Qubits & Superposition', speaker: 'Prof. David K. Miller' },
+          { time: '03:15 PM - 04:00 PM', topic: 'Live Quantum Circuit Simulation in Python/Qiskit', speaker: 'Prof. David K. Miller' },
+          { time: '04:00 PM - 04:30 PM', topic: 'Open Panel: Future Careers in Quantum Tech', speaker: 'Panel Members' },
+        ],
+      },
+      {
+        eventName: 'Full-Stack Cloud Native Architecture Masterclass',
+        eventType: 'Workshop',
+        resourcePerson: 'Ananya Sharma (Principal Cloud Architect at CloudScale Global)',
+        speakerBio: 'Kubernetes contributor and AWS Certified Solutions Architect specializing in resilient distributed systems.',
+        eventDate: getFutureDate(18, 11, 0),
+        endDate: getFutureDate(18, 15, 0),
+        venue: 'Engineering Block 3 - Multimedia Suite 204',
+        maxParticipants: 50,
+        availableSeats: 0,
+        eventDescription: 'Learn how to architect, containerize, and orchestrate scalable microservices using Docker, Kubernetes, and CI/CD pipelines with GitHub Actions. Walk away with an automated deployment pipeline running live on cloud clusters.',
+        status: 'Registration Closed',
+        createdBy: organizerId,
+        tags: ['Cloud', 'Kubernetes', 'Docker', 'DevOps', 'Microservices'],
+        bannerImage: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80',
+        agenda: [
+          { time: '11:00 AM - 12:30 PM', topic: 'Microservices Design Patterns & 12-Factor Apps', speaker: 'Ananya Sharma' },
+          { time: '01:15 PM - 02:45 PM', topic: 'Containerization & Multi-stage Docker Builds', speaker: 'Ananya Sharma' },
+          { time: '03:00 PM - 04:00 PM', topic: 'Zero-Downtime Deployments with K8s Ingress', speaker: 'Ananya Sharma' },
+        ],
+      },
+      {
+        eventName: 'Annual Inter-College Cultural Arts & Rhythm Fusion',
+        eventType: 'Cultural',
+        resourcePerson: 'Maya Lin & The Resonance Collective',
+        speakerBio: 'Award-winning contemporary fusion music and theater director, recognized by the National Arts Council.',
+        eventDate: getFutureDate(25, 17, 30),
+        endDate: getFutureDate(25, 22, 0),
+        venue: 'Open Air Amphitheatre',
+        maxParticipants: 500,
+        availableSeats: 210,
+        eventDescription: 'Celebrate diversity, music, dramatic arts, and culinary delights at our biggest annual festival. Featuring 15+ student bands, competitive dance battles, spoken word poetry, and interactive art installations.',
+        status: 'Registration Open',
+        createdBy: organizerId,
+        tags: ['Music', 'Arts', 'Dance', 'Festival', 'Performance'],
+        bannerImage: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&auto=format&fit=crop&q=80',
+        agenda: [
+          { time: '05:30 PM - 06:30 PM', topic: 'Opening Ceremonies & Symphony Orchestra', speaker: 'Campus Band' },
+          { time: '06:45 PM - 08:30 PM', topic: 'National Collegiate Dance Championship', speaker: '12 Finalist Teams' },
+          { time: '08:45 PM - 10:00 PM', topic: 'Headlining Musical Performance & Light Show', speaker: 'Maya Lin & Resonance' },
+        ],
+      },
+      {
+        eventName: 'UI/UX Design Systems & Micro-Interactions in Figma',
+        eventType: 'Workshop',
+        resourcePerson: 'Julian Morales (Lead Product Designer, DesignCraft)',
+        speakerBio: 'Ex-Stripe design systems engineer crafting human-centric design tokens and interactive prototypes.',
+        eventDate: getFutureDate(30, 13, 0),
+        endDate: getFutureDate(30, 17, 0),
+        venue: 'Design Studio Lab 12',
+        maxParticipants: 40,
+        availableSeats: 15,
+        eventDescription: 'Bridge the gap between design and engineering. Learn to construct accessible color palettes, modular typography scales, variant components, and fluid micro-interactions with advanced Figma auto-layout and smart animates.',
+        status: 'Published',
+        createdBy: organizerId,
+        tags: ['UI/UX', 'Figma', 'Product Design', 'Accessibility'],
+        bannerImage: 'https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?w=800&auto=format&fit=crop&q=80',
+        agenda: [
+          { time: '01:00 PM - 02:30 PM', topic: 'Token Architecture & Modular Design Systems', speaker: 'Julian Morales' },
+          { time: '02:45 PM - 04:15 PM', topic: 'Prototyping Delightful Micro-Interactions', speaker: 'Julian Morales' },
+          { time: '04:15 PM - 05:00 PM', topic: 'Design Review Critiques & Handoff Strategies', speaker: 'Julian Morales' },
+        ],
+      },
+      {
+        eventName: 'Global Tech Careers & Silicon Valley Mentorship Webinar',
+        eventType: 'Webinar',
+        resourcePerson: 'Samantha Wei (Engineering Director, FinTech Global)',
+        speakerBio: 'Alumni mentor who has scaled multiple unicorn engineering organizations and guided 200+ grads.',
+        eventDate: getFutureDate(40, 19, 0),
+        endDate: getFutureDate(40, 20, 30),
+        venue: 'Zoom Interactive Webinar (Global Broadcast)',
+        maxParticipants: 300,
+        availableSeats: 180,
+        eventDescription: 'Navigating the modern technical hiring market: algorithmic interview preparation, portfolio standout techniques, open source contributions, and networking with global recruiters.',
+        status: 'Registration Open',
+        createdBy: organizerId,
+        tags: ['Career', 'Mentorship', 'Interviews', 'Tech Industry'],
+        bannerImage: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80',
+        agenda: [
+          { time: '07:00 PM - 07:45 PM', topic: 'Mastering the Technical Interview Pipeline', speaker: 'Samantha Wei' },
+          { time: '07:45 PM - 08:30 PM', topic: 'Live Resume Teardowns & Live Q&A', speaker: 'Samantha Wei' },
+        ],
+      },
+      {
+        eventName: 'Autonomous Robotics & ROS2 Guest Lecture',
+        eventType: 'Guest Lecture',
+        resourcePerson: 'Dr. Kenji Takahashi (Robotics Institute of Technology)',
+        speakerBio: 'Pioneer in SLAM (Simultaneous Localization and Mapping) and autonomous robotic navigation.',
+        eventDate: getPastDate(5, 15, 0),
+        endDate: getPastDate(5, 17, 0),
+        venue: 'Robotics Research Auditorium (Building 7)',
+        maxParticipants: 80,
+        availableSeats: 0,
+        eventDescription: 'An exclusive lecture on the state of autonomous mobile robots, lidar sensor fusion, and path planning algorithms under ROS2 (Robot Operating System).',
+        status: 'Completed',
+        createdBy: organizerId,
+        tags: ['Robotics', 'ROS2', 'Autonomous Systems', 'SLAM'],
+        bannerImage: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800&auto=format&fit=crop&q=80',
+        agenda: [
+          { time: '03:00 PM - 04:00 PM', topic: 'SLAM and Real-time Sensor Fusion', speaker: 'Dr. Kenji Takahashi' },
+          { time: '04:15 PM - 05:00 PM', topic: 'Live Quadruped Robot Navigation Demo', speaker: 'Dr. Kenji Takahashi' },
+        ],
+      },
+    ];
+
+    const insertedEvents = await Event.insertMany(eventsData);
+    console.log(`[Seed] Inserted ${insertedEvents.length} events successfully...`);
+
+    // Seed Sample Registration for Student
+    await Registration.create({
+      eventId: insertedEvents[0]._id,
+      userId: studentId,
+      ticketId: 'TKT-A92B48F1',
+      status: 'Confirmed',
+      registeredAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      qrCodeData: JSON.stringify({
+        ticketId: 'TKT-A92B48F1',
+        eventId: insertedEvents[0]._id,
+        eventName: insertedEvents[0].eventName,
+        userName: users[0].name,
+        userEmail: users[0].email,
+      }),
+    });
+
+    console.log('[Seed] Sample student registration created...');
+    console.log('[Seed] Database seeding completed successfully!');
+    process.exit(0);
+  } catch (error) {
+    console.error('[Seed Error]:', error);
+    process.exit(1);
+  }
+};
+
+seedData();
